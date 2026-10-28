@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fato ou Fake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#EDEFFC; --surface:#FFFFFF; --surface-2:#DFE3F8; --ink:#14173A; --muted:#545985; --line:#CBD0EE;
+  --fato:#2563EB; --fato-edge:#163C9C; --fato-ink:#FFFFFF;
+  --fake:#FFC42E; --fake-edge:#B5830B; --fake-ink:#2B2100;
+  --ok:#0B8F62; --bad:#D22F3E; --pad:#14173A;
+  --sq:#F28CC0; --ci:#FF5468; --cr:#8DB0FF; --tr:#4FD2A0;
+  --display:"Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#12163A; --surface:#1C2152; --surface-2:#282E66; --ink:#F2F2FF; --muted:#A8ADDB; --line:#363D7C;
+    --fato:#3572FF; --fato-edge:#1A3FA8; --ok:#2BD195; --bad:#FF6672; --pad:#0A0D29;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#12163A; --surface:#1C2152; --surface-2:#282E66; --ink:#F2F2FF; --muted:#A8ADDB; --line:#363D7C;
+  --fato:#3572FF; --fato-edge:#1A3FA8; --ok:#2BD195; --bad:#FF6672; --pad:#0A0D29;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.45;overflow:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--fato);outline-offset:3px}
+
+/* ---------- Telas ---------- */
+.screen{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(16px,4vh,48px) clamp(16px,4vw,64px);text-align:center}
+
+/* Indicador de controle */
+.pad-status{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:14px;z-index:5;
+  display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+.pad-status .dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.pad-status.on .dot{background:var(--ok)}
+.pad-status.blocked .dot{background:var(--bad)}
+
+/* Símbolos PlayStation */
+.ps{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:var(--pad);flex:none}
+.ps svg{width:62%;height:62%;display:block}
+.ps.sq{color:var(--sq)} .ps.ci{color:var(--ci)} .ps.cr{color:var(--cr)} .ps.tr{color:var(--tr)} .ps.dp{color:#fff;font-size:1em}
+.ps.dp span{font-size:.6em;line-height:1}
+
+/* Início */
+.title{font-family:var(--display);font-weight:800;font-size:clamp(3rem,9vw,7rem);line-height:1;letter-spacing:-.03em;margin:0 0 .15em;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.18em}
+.title .chip{display:inline-block;padding:.02em .28em .08em;border-radius:.22em}
+.title .chip.fato{background:var(--fato);color:var(--fato-ink);transform:rotate(-3deg)}
+.title .chip.fake{background:var(--fake);color:var(--fake-ink);transform:rotate(2.5deg)}
+.title .ou{font-weight:600;font-size:.55em;color:var(--muted)}
+.lead{color:var(--muted);margin:0 0 clamp(18px,4vh,36px);font-size:1.15rem}
+.tests{display:grid;gap:14px;width:min(640px,100%);max-height:46vh;overflow:auto;padding:6px}
+.test-card{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 24px;border-radius:20px;
+  background:var(--surface);border:3px solid transparent;cursor:pointer;text-align:left}
+.test-card.is-sel{border-color:var(--fato);box-shadow:0 6px 0 var(--line)}
+.test-name{font-family:var(--display);font-weight:700;font-size:clamp(1.25rem,2.4vw,1.7rem);line-height:1.15}
+.test-meta{color:var(--muted);white-space:nowrap}
+.empty{color:var(--muted);font-size:1.2rem}
+.hints{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:center;color:var(--muted);margin-top:clamp(18px,4vh,34px)}
+.hint{display:inline-flex;align-items:center;gap:8px;font-size:1.05rem}
+.kbd-note{color:var(--muted);font-size:.9rem;margin-top:14px;opacity:.85}
+
+/* Prepare-se */
+.prep-title{font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,6vw,4.6rem);margin:0;letter-spacing:-.02em}
+.prep-sub{color:var(--muted);font-size:1.25rem;margin:.3em 0 0}
+#count{font-family:var(--display);font-weight:800;font-size:clamp(8rem,34vh,19rem);line-height:1;height:1.05em;margin-top:2vh;font-variant-numeric:tabular-nums}
+#count.pop{animation:pop .9s ease-out both}
+@keyframes pop{0%{transform:scale(1.9);opacity:0}22%{transform:scale(1);opacity:1}78%{opacity:1}100%{transform:scale(.86);opacity:0}}
+
+/* Pergunta */
+.game{justify-content:space-between}
+.topline{width:100%;display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:1rem;padding-left:clamp(0px,14vw,190px)}
+.qwrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;width:100%;min-height:0;padding:2vh 0}
+.qtext{font-family:var(--display);font-weight:700;font-size:clamp(1.7rem,2.1vw + 2.3vh,3.9rem);line-height:1.12;letter-spacing:-.01em;
+  max-width:24ch;margin:0;text-wrap:balance}
+.stamp{position:absolute;top:2%;right:4%;font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,7vw,5.5rem);line-height:1;
+  padding:.08em .38em .14em;border-radius:.2em;transform:rotate(-9deg);pointer-events:none;
+  box-shadow:0 0 0 6px var(--bg),0 0 0 11px var(--st);animation:stamp .38s cubic-bezier(.2,.9,.3,1.35) both}
+.stamp.fato{background:var(--fato);color:var(--fato-ink);--st:var(--fato)}
+.stamp.fake{background:var(--fake);color:var(--fake-ink);--st:var(--fake)}
+@keyframes stamp{from{transform:scale(2.3) rotate(-9deg);opacity:0}to{transform:scale(1) rotate(-9deg);opacity:1}}
+
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2.5vw,32px);width:min(1100px,100%)}
+.answer{position:relative;appearance:none;border:0;border-radius:28px;min-height:clamp(96px,19vh,200px);
+  display:flex;align-items:center;justify-content:center;gap:.5em;padding:0 .4em;
+  font-family:var(--display);font-weight:800;font-size:clamp(2rem,5vw,4.4rem);cursor:pointer;
+  box-shadow:0 9px 0 var(--edge);transition:transform .1s, box-shadow .1s, opacity .3s, filter .3s, outline-color .3s}
+.answer.fato{background:var(--fato);color:var(--fato-ink);--edge:var(--fato-edge)}
+.answer.fake{background:var(--fake);color:var(--fake-ink);--edge:var(--fake-edge)}
+.answer:not(:disabled):active,.answer.is-press{transform:translateY(7px);box-shadow:0 2px 0 var(--edge)}
+.answer:disabled{cursor:default}
+.answer.is-dim{opacity:.35;filter:saturate(.35)}
+.answer.is-right{outline:6px solid var(--ok);outline-offset:7px}
+.answer .mine{display:none;position:absolute;top:-.9rem;left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--body);font-weight:700;font-size:1rem;background:var(--pad);color:#fff;padding:.2em .8em;border-radius:99px}
+.answer.is-chosen .mine{display:block}
+
+.bottom{width:100%;min-height:clamp(118px,17vh,180px);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;margin-top:clamp(18px,4vh,40px)}
+.track{width:min(560px,80vw);height:16px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.fill{height:100%;background:var(--ok);transform-origin:center;border-radius:inherit;transition:background-color .3s}
+.fill[data-level="warn"]{background:var(--fake)}
+.fill[data-level="low"]{background:var(--bad)}
+.secs{margin-top:10px;font-size:clamp(1.15rem,1.4vh + .6vw,1.6rem);font-variant-numeric:tabular-nums;color:var(--muted)}
+
+.verdict{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.2vw,2.4rem);margin:0;line-height:1.1}
+.verdict[data-kind="ok"]{color:var(--ok)} .verdict[data-kind="bad"]{color:var(--bad)}
+.right-ans{margin:.3em 0 0;font-size:1.2rem}
+.note{margin:.2em 0 0;color:var(--muted);max-width:60ch}
+.continue{margin-top:14px;font-weight:700;visibility:hidden}
+.continue.on{visibility:visible;animation:breathe 1.8s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45}}
+
+/* Resultado */
+.final-title{font-family:var(--display);font-weight:800;font-size:clamp(2.2rem,5.4vw,4.2rem);line-height:1.05;letter-spacing:-.02em;margin:0;max-width:20ch}
+.final-sub{color:var(--muted);font-size:1.2rem;margin:.5em 0 clamp(18px,4vh,36px)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2.5vw,28px);width:min(640px,100%)}
+.stat{background:var(--surface);border-radius:24px;padding:clamp(16px,3vh,28px) 16px}
+.stat .num{font-family:var(--display);font-weight:800;font-size:clamp(3rem,9vh,5rem);line-height:1;font-variant-numeric:tabular-nums}
+.stat .lbl{font-size:1.15rem;margin-top:.3em}
+.stat .pct{color:var(--muted);font-variant-numeric:tabular-nums}
+.stat.ok .num{color:var(--ok)} .stat.bad .num{color:var(--bad)}
+.split{display:flex;width:min(640px,100%);height:16px;border-radius:99px;overflow:hidden;background:var(--surface-2);margin-top:clamp(16px,3vh,28px)}
+.split .a{background:var(--ok)} .split .b{background:var(--bad)}
+
+/* ---------- Área administrativa ---------- */
+.admin{position:fixed;inset:0;z-index:50;background:var(--bg);overflow:auto;font-size:16px;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.admin-in{max-width:1120px;margin:0 auto;padding:24px clamp(14px,3vw,32px) 60px}
+.admin-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.admin-head h2{font-family:var(--display);font-weight:800;font-size:2rem;margin:0}
+.tabs{display:flex;gap:6px;margin:20px 0 22px;border-bottom:2px solid var(--line);flex-wrap:wrap}
+.tab{background:none;border:0;padding:10px 16px;cursor:pointer;color:var(--muted);font-weight:700;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--fato)}
+.btn{background:var(--fato);color:var(--fato-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer}
+.btn.ghost{background:var(--surface-2);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
+.btn.small{padding:6px 12px;font-size:.9rem}
+.btn:disabled{opacity:.4;cursor:default}
+.muted{color:var(--muted)}
+.admin h3{font-family:var(--display);font-weight:700;font-size:1.3rem;margin:26px 0 10px}
+.field{display:flex;flex-direction:column;gap:6px;margin:0 0 14px;border:0;padding:0}
+.field label,.field legend{font-weight:700;font-size:.95rem;padding:0}
+input[type="text"],input[type="number"],textarea,select{font:inherit;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:9px 12px;width:100%}
+textarea{resize:vertical}
+input:focus,textarea:focus,select:focus{border-color:var(--fato);outline:none}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.switch input{width:20px;height:20px;accent-color:var(--fato);margin:0}
+.switch.big{margin:4px 0 6px;font-weight:700}
+.radio{display:inline-flex;align-items:center;gap:6px;margin-right:18px;font-weight:400 !important;cursor:pointer}
+.radio input{accent-color:var(--fato);width:18px;height:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+.tests-layout{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:26px;align-items:start}
+.t-list{display:grid;gap:8px;margin-top:12px}
+.t-item{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;background:var(--surface);border:2px solid transparent;border-radius:12px;padding:10px 12px;cursor:pointer}
+.t-item.is-sel{border-color:var(--fato)}
+.t-name{font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.t-sub{grid-column:1 / -1;color:var(--muted);font-size:.88rem}
+.pill{font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:99px;align-self:start}
+.pill.on{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+.pill.off{background:var(--surface-2);color:var(--muted)}
+.t-editor{background:var(--surface);border-radius:16px;padding:20px}
+
+.rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.row{display:grid;grid-template-columns:28px 1fr auto auto auto auto auto auto;align-items:center;gap:10px;
+  background:var(--bg);border-radius:10px;padding:8px 10px;border:2px solid transparent}
+.row.is-off .rtext,.row.is-off .pos{opacity:.45;text-decoration:line-through}
+.row.dragging{opacity:.4}
+.row.drop-target{border-color:var(--fato)}
+.pos{font-weight:700;color:var(--muted);text-align:right;cursor:grab;font-variant-numeric:tabular-nums}
+.rtext{min-width:0}
+.rtime{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tag{font-size:.8rem;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.tag.fato{background:var(--fato);color:var(--fato-ink)}
+.tag.fake{background:var(--fake);color:var(--fake-ink)}
+.icon{background:var(--surface-2);border:0;border-radius:8px;width:34px;height:34px;cursor:pointer;font-weight:700}
+.icon:disabled{opacity:.3;cursor:default}
+.icon.danger{color:var(--bad)}
+.add{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.add select{flex:1 1 280px;width:auto}
+.danger-zone{margin-top:28px;padding-top:16px;border-top:2px dashed var(--line)}
+
+.qform{background:var(--surface);border-radius:16px;padding:20px;margin:6px 0 20px}
+.qform h3{margin-top:0}
+.form-err{color:var(--bad);font-weight:700;margin:0 0 10px}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+.table-wrap{overflow-x:auto;margin-top:16px;background:var(--surface);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:.88rem;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+td.acts{white-space:nowrap;text-align:right}
+td.acts .btn+.btn{margin-left:6px}
+.msg{margin-left:10px;color:var(--ok);font-weight:700}
+.msg.err{color:var(--bad)}
+
+@media (max-width:760px){
+  .tests-layout{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+  .row{grid-template-columns:24px 1fr auto auto;}
+  .row .tag,.row .rtime{display:none}
+  .topline{padding-left:0;margin-top:28px}
+}
+@media (prefers-reduced-motion: reduce){
+  #count.pop{animation:none}
+  .stamp,.continue.on{animation:none}
+  .answer{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="pad-status" id="padStatus" role="status"><span class="dot"></span><span id="padText">Pressione um botão do controle para conectar</span></div>
+
+<!-- Início -->
+<section class="screen" id="home">
+  <h1 class="title"><span class="chip fato">Fato</span><span class="ou">ou</span><span class="chip fake">Fake?</span></h1>
+  <p class="lead">Escolha um teste para começar</p>
+  <div class="tests" id="testList"></div>
+  <div class="hints">
+    <span class="hint"><span class="ps dp"><span>▲▼</span></span> Escolher</span>
+    <span class="hint"><span class="ps cr"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg></span> Começar</span>
+    <span class="hint"><span class="ps tr"><svg viewBox="0 0 24 24"><path d="M12 5.4L18.6 17.8H5.4z" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" fill="none"/></svg></span> Sortear <span id="quickN">3</span></span>
+  </div>
+  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia.</p>
+</section>
+
+<!-- Prepare-se -->
+<section class="screen" id="prep" hidden>
+  <h2 class="prep-title">Prepare-se</h2>
+  <p class="prep-sub" id="prepSub"></p>
+  <div id="count" aria-live="assertive"></div>
+</section>
+
+<!-- Pergunta -->
+<section class="screen game" id="game" hidden>
+  <div class="topline"><span id="testTitle"></span><span id="progress"></span></div>
+  <div class="qwrap">
+    <p class="qtext" id="qText"></p>
+    <div class="stamp" id="stamp" hidden></div>
+  </div>
+  <div class="answers">
+    <button type="button" class="answer fato" id="btnFato">
+      <span class="mine">Sua resposta</span>
+      <span class="ps sq"><svg viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="2.8"/></svg></span>
+      Fato
+    </button>
+    <button type="button" class="answer fake" id="btnFake">
+      <span class="mine">Sua resposta</span>
+      <span class="ps ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.8"/></svg></span>
+      Fake
+    </button>
+  </div>
+  <div class="bottom">
+    <div id="timerBox">
+      <div class="track" role="progressbar" aria-label="Tempo restante"><div class="fill" id="fill"></div></div>
+      <div class="secs" id="secs" aria-live="off"></div>
+    </div>
+    <div id="feedback" hidden aria-live="polite">
+      <p class="verdict" id="verdict"></p>
+      <p class="right-ans" id="rightAns"></p>
+      <p class="note" id="note"></p>
+      <p class="continue" id="continueHint">Pressione qualquer botão pra continuar</p>
+    </div>
+  </div>
+</section>
+
+<!-- Resultado -->
+<section class="screen" id="final" hidden>
+  <h2 class="final-title">Parabéns pela participação!</h2>
+  <p class="final-sub" id="finalSub"></p>
+  <div class="stats">
+    <div class="stat ok"><div class="num" id="hitN">0</div><div class="lbl">Acertos</div><div class="pct" id="hitP"></div></div>
+    <div class="stat bad"><div class="num" id="missN">0</div><div class="lbl">Erros</div><div class="pct" id="missP"></div></div>
+  </div>
+  <div class="split" aria-hidden="true"><div class="a" id="splitA"></div><div class="b" id="splitB"></div></div>
+  <p class="continue" id="finalHint">Pressione qualquer botão para voltar ao início</p>
+</section>
+
+<!-- Área administrativa -->
+<div class="admin" id="admin" hidden role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+  <div class="admin-in">
+    <div class="admin-head">
+      <h2 id="adminTitle">Área administrativa</h2>
+      <button type="button" class="btn ghost" id="adminClose">Fechar e voltar ao jogo</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab" role="tab" data-tab="tests">Testes</button>
+      <button type="button" class="tab" role="tab" data-tab="questions">Perguntas</button>
+      <button type="button" class="tab" role="tab" data-tab="backup">Backup</button>
+    </div>
+    <div id="adminBody"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Dados ================= */
+const KEY = 'fatoOuFake.v1';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+const pctFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+const clampTime = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(300, Math.max(3, n)) : 10; };
+const ansLabel = a => a === 'fato' ? 'Fato' : 'Fake';
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+
+function seed() {
+  const qs = [
+    ['O coração humano tem quatro câmaras.', 'fato', 'São dois átrios e dois ventrículos.'],
+    ['A Grande Muralha da China pode ser vista a olho nu da Lua.', 'fake', 'Ela é longa, mas estreita demais para ser vista de tão longe.'],
+    ['Os seres humanos usam apenas 10% do cérebro.', 'fake', 'Exames de imagem mostram atividade em praticamente todas as áreas do cérebro.'],
+    ['Polvos têm três corações.', 'fato', 'Dois bombeiam sangue para as brânquias e um para o resto do corpo.'],
+    ['Um raio nunca cai duas vezes no mesmo lugar.', 'fake', 'Prédios altos e para-raios são atingidos várias vezes por ano.'],
+    ['O som se propaga mais rápido na água do que no ar.', 'fato', 'Na água, o som viaja cerca de quatro vezes mais rápido.'],
+    ['Morcegos são cegos.', 'fake', 'Todos os morcegos enxergam; muitos também usam ecolocalização.'],
+    ['Ao nível do mar, a água ferve a 100 °C.', 'fato', 'Em lugares mais altos, a pressão é menor e a água ferve antes disso.'],
+    ['O Brasil é o maior país da América do Sul em área.', 'fato', 'Ocupa quase metade do território do continente.'],
+    ['Peixes-dourados têm memória de apenas três segundos.', 'fake', 'Estudos mostram que eles conseguem lembrar de coisas por meses.']
+  ].map(([text, answer, note]) => ({ id: uid(), text, answer, note, time: 10 }));
+  return {
+    questions: qs,
+    tests: [
+      { id: uid(), name: 'Demonstração', active: true, items: qs.map(q => ({ questionId: q.id, active: true })) },
+      { id: uid(), name: 'Ciência rápida', active: false, items: [0, 3, 5, 7].map(i => ({ questionId: qs[i].id, active: true })) }
+    ]
+  };
+}
+
+function normalize(d) {
+  if (!d || !Array.isArray(d.questions) || !Array.isArray(d.tests)) throw new Error('formato');
+  const questions = d.questions
+    .filter(q => q && q.id != null && typeof q.text === 'string' && q.text.trim())
+    .map(q => ({ id: String(q.id), text: q.text.trim(), answer: q.answer === 'fake' ? 'fake' : 'fato',
+                 note: typeof q.note === 'string' ? q.note : '', time: clampTime(q.time) }));
+  const ids = new Set(questions.map(q => q.id));
+  const tests = d.tests.filter(t => t && t.id != null).map(t => {
+    const seen = new Set();
+    const items = (Array.isArray(t.items) ? t.items : [])
+      .filter(it => it && ids.has(String(it.questionId)) && !seen.has(String(it.questionId)) && seen.add(String(it.questionId)))
+      .map(it => ({ questionId: String(it.questionId), active: it.active !== false }));
+    return { id: String(t.id), name: String(t.name || 'Teste sem nome'), active: !!t.active, items };
+  });
+  return { questions, tests };
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return normalize(JSON.parse(raw));
+  } catch (e) { /* usa o exemplo */ }
+  return seed();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* sem armazenamento */ } }
+
+let db = load();
+save();
+const qById = id => db.questions.find(q => q.id === id);
+const activeQuestions = t => t.items.filter(i => i.active).map(i => qById(i.questionId)).filter(Boolean);
+const playableTests = () => db.tests.filter(t => t.active).map(t => ({ t, qs: activeQuestions(t) })).filter(x => x.qs.length);
+
+/* ================= Telas ================= */
+const screens = { home: $('#home'), prep: $('#prep'), game: $('#game'), final: $('#final') };
+let screen = 'home';
+function show(name) { for (const [k, el] of Object.entries(screens)) el.hidden = k !== name; screen = name; }
+
+let timers = [];
+const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+let game = null;
+let homeIdx = 0;
+
+function renderHome() {
+  const list = playableTests();
+  homeIdx = Math.min(homeIdx, Math.max(0, list.length - 1));
+  const box = $('#testList');
+  if (!list.length) { box.innerHTML = '<p class="empty">Nenhum teste disponível no momento.</p>'; return; }
+  box.innerHTML = list.map((x, i) =>
+    `<button type="button" class="test-card${i === homeIdx ? ' is-sel' : ''}" data-i="${i}">
+       <span class="test-name">${esc(x.t.name)}</span>
+       <span class="test-meta">${plural(x.qs.length, 'pergunta', 'perguntas')}</span>
+     </button>`).join('');
+  const sel = box.querySelector('.is-sel');
+  if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+$('#testList').addEventListener('click', e => {
+  const b = e.target.closest('.test-card'); if (!b) return;
+  homeIdx = +b.dataset.i; startTest(homeIdx);
+});
+
+function goHome() { clearTimers(); game = null; show('home'); renderHome(); }
+
+function restartAnim(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
+// Modo sorteio (Triângulo): QUICK_N perguntas aleatórias, em ordem aleatória
+const QUICK_N = 3;
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function startTest(i, quick) {
+  const x = playableTests()[i]; if (!x) return;
+  clearTimers();
+  // Com menos perguntas que QUICK_N, usa as que houver
+  const queue = quick ? shuffled(x.qs).slice(0, QUICK_N) : x.qs;
+  game = { test: x.t, queue, idx: 0, results: [], phase: 'prep', canContinue: false, quick: !!quick };
+  const drawn = quick ? (queue.length === 1 ? ' sorteada' : ' sorteadas') : '';
+  $('#prepSub').textContent = `${x.t.name}: ${plural(queue.length, 'pergunta', 'perguntas')}${drawn}`;
+  $('#count').textContent = '';
+  show('prep');
+  later(() => countdown(3), 1800);
+}
+function countdown(n) {
+  const el = $('#count');
+  if (n === 0) { el.textContent = 'Já!'; restartAnim(el, 'pop'); later(showQuestion, 700); return; }
+  el.textContent = n; restartAnim(el, 'pop');
+  later(() => countdown(n - 1), 900);
+}
+
+const btnFato = $('#btnFato'), btnFake = $('#btnFake'), fill = $('#fill'), secs = $('#secs');
+
+function showQuestion() {
+  const q = game.queue[game.idx];
+  Object.assign(game, { phase: 'question', q, duration: q.time * 1000, start: performance.now(), lastS: null, canContinue: false });
+  $('#testTitle').textContent = game.test.name;
+  $('#progress').textContent = `Pergunta ${game.idx + 1} de ${game.queue.length}`;
+  $('#qText').textContent = q.text;
+  $('#stamp').hidden = true;
+  for (const b of [btnFato, btnFake]) { b.classList.remove('is-dim', 'is-right', 'is-chosen', 'is-press'); b.disabled = false; }
+  $('#timerBox').hidden = false; $('#feedback').hidden = true;
+  $('#continueHint').classList.remove('on');
+  show('game');
+  updateTimer(game.start);
+}
+
+function updateTimer(now) {
+  const rem = Math.max(0, game.duration - (now - game.start));
+  const frac = rem / game.duration;
+  fill.style.transform = `scaleX(${frac})`;
+  fill.dataset.level = frac > 0.5 ? 'ok' : frac > 0.25 ? 'warn' : 'low';
+  const s = Math.ceil(rem / 1000);
+  if (s !== game.lastS) { secs.textContent = s === 1 ? '1 segundo' : `${s} segundos`; game.lastS = s; }
+  if (rem <= 0) answer(null);
+}
+
+function answer(choice) {
+  if (!game || game.phase !== 'question') return;
+  const q = game.q, ok = choice === q.answer;
+  game.results.push({ q, choice, ok });
+  game.phase = 'feedback';
+  const chosen = choice === 'fato' ? btnFato : choice === 'fake' ? btnFake : null;
+  const right = q.answer === 'fato' ? btnFato : btnFake;
+  if (chosen) { chosen.classList.add('is-press', 'is-chosen'); setTimeout(() => chosen.classList.remove('is-press'), 140); }
+  for (const b of [btnFato, btnFake]) { b.classList.add(b === right ? 'is-right' : 'is-dim'); b.disabled = true; }
+
+  const st = $('#stamp');
+  st.textContent = ansLabel(q.answer); st.className = 'stamp ' + q.answer; st.hidden = false;
+  restartAnim(st, 'stamp');
+
+  const v = $('#verdict');
+  v.textContent = choice === null ? 'Tempo esgotado!' : ok ? 'Você acertou!' : 'Você errou.';
+  v.dataset.kind = ok ? 'ok' : 'bad';
+  $('#rightAns').innerHTML = `A resposta certa é <strong>${ansLabel(q.answer)}</strong>.`;
+  $('#note').textContent = q.note || ''; $('#note').hidden = !q.note;
+  $('#timerBox').hidden = true; $('#feedback').hidden = false;
+  later(() => { if (game && game.phase === 'feedback') { game.canContinue = true; $('#continueHint').classList.add('on'); } }, 900);
+}
+
+function nextQuestion() {
+  if (!game.canContinue) return;
+  game.idx++;
+  if (game.idx < game.queue.length) showQuestion(); else showFinal();
+}
+
+function showFinal() {
+  const total = game.results.length, hits = game.results.filter(r => r.ok).length, miss = total - hits;
+  const hp = total ? hits / total * 100 : 0, mp = total ? 100 - hp : 0;
+  $('#finalSub').textContent = `Você acertou ${hits} de ${plural(total, 'pergunta', 'perguntas')} no teste ${game.test.name}.`;
+  $('#hitN').textContent = hits; $('#missN').textContent = miss;
+  $('#hitP').textContent = pctFmt.format(hp) + '%'; $('#missP').textContent = pctFmt.format(mp) + '%';
+  $('#splitA').style.width = hp + '%'; $('#splitB').style.width = mp + '%';
+  $('#finalHint').classList.remove('on');
+  game.phase = 'final'; game.canContinue = false;
+  show('final');
+  later(() => { if (game) { game.canContinue = true; $('#finalHint').classList.add('on'); } }, 1500);
+}
+
+btnFato.addEventListener('click', () => handle('fato'));
+btnFake.addEventListener('click', () => handle('fake'));
+for (const id of ['game', 'final']) screens[id].addEventListener('click', e => {
+  if (e.target.closest('.answer')) return;
+  if (game && (game.phase === 'feedback' || game.phase === 'final')) handle('any');
+});
+
+/* ================= Entrada ================= */
+function handle(a) {
+  if (adminOpen) return;
+  if (screen === 'home') {
+    const n = playableTests().length; if (!n) return;
+    if (a === 'up') { homeIdx = (homeIdx - 1 + n) % n; renderHome(); }
+    else if (a === 'down') { homeIdx = (homeIdx + 1) % n; renderHome(); }
+    else if (a === 'confirm' || a === 'start') startTest(homeIdx);
+    else if (a === 'quick') startTest(homeIdx, true);
+  } else if (screen === 'game' && game) {
+    if (game.phase === 'question') { if (a === 'fato' || a === 'fake') answer(a); }
+    else if (game.phase === 'feedback' && a !== 'up' && a !== 'down') nextQuestion();
+  } else if (screen === 'final' && game && game.canContinue && a !== 'up' && a !== 'down') {
+    goHome();
+  }
+}
+
+// Mapeamento padrão do Chrome para DualShock 4
+const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 9: 'start', 12: 'up', 13: 'down' };
+const prevBtns = new Map(), axisState = new Map();
+let padSig = '', padBlocked = false;
+
+function setPadStatus(pads) {
+  const el = $('#padStatus'), txt = $('#padText');
+  el.classList.toggle('on', pads.length > 0);
+  el.classList.toggle('blocked', padBlocked);
+  if (padBlocked) txt.textContent = 'O navegador bloqueou o controle nesta janela';
+  else if (pads.length) txt.textContent = pads.length > 1 ? `${pads.length} controles conectados` : 'Controle conectado';
+  else txt.textContent = 'Pressione um botão do controle para conectar';
+}
+
+function poll(now) {
+  let pads = [];
+  try { pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : []; }
+  catch (e) { if (!padBlocked) { padBlocked = true; setPadStatus([]); } return; }
+  const sig = pads.map(p => p.index).join(',');
+  if (sig !== padSig) { padSig = sig; setPadStatus(pads); }
+  for (const gp of pads) {
+    const prev = prevBtns.get(gp.index) || [];
+    gp.buttons.forEach((b, i) => {
+      const down = b.pressed || b.value > 0.6;
+      if (down && !prev[i]) handle(BTN[i] || 'any');
+      prev[i] = down;
+    });
+    prevBtns.set(gp.index, prev);
+    // Analógico esquerdo só navega na tela inicial
+    const y = gp.axes[1] || 0, dir = y < -0.6 ? 'up' : y > 0.6 ? 'down' : null;
+    const st = axisState.get(gp.index) || { dir: null, t: 0 };
+    if (dir && screen === 'home' && (dir !== st.dir || now - st.t > 380)) { handle(dir); st.t = now; }
+    st.dir = dir; axisState.set(gp.index, st);
+  }
+}
+
+function loop(now) {
+  poll(now);
+  if (screen === 'game' && game && game.phase === 'question' && !adminOpen) updateTimer(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+window.addEventListener('gamepadconnected', () => { padSig = '*'; });
+window.addEventListener('gamepaddisconnected', () => { padSig = '*'; });
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && (e.code === 'KeyH' || e.key === 'H' || e.key === 'h')) {
+    e.preventDefault(); adminOpen ? closeAdmin() : openAdmin(); return;
+  }
+  if (adminOpen) { if (e.key === 'Escape') closeAdmin(); return; }
+  if (e.repeat || ['Shift', 'Control', 'Alt', 'Meta', 'Tab'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+  let a = 'any';
+  if (e.key === 'ArrowLeft') a = 'fato';
+  else if (e.key === 'ArrowRight') a = 'fake';
+  else if (e.key === 'ArrowUp') a = 'up';
+  else if (e.key === 'ArrowDown') a = 'down';
+  else if (e.key === 'Enter' || e.key === ' ') a = 'confirm';
+  else if (e.key === 'r' || e.key === 'R') a = 'quick';
+  if (a !== 'any' || screen !== 'home') e.preventDefault();
+  handle(a);
+});
+
+/* ================= Área administrativa ================= */
+const adminEl = $('#admin'), adminBody = $('#adminBody');
+let adminOpen = false, adminTab = 'tests', selTestId = null, editQ = null;
+let armed = null, armBtn = null, armTimer = 0;
+
+function openAdmin() {
+  adminOpen = true;
+  goHome();
+  adminEl.hidden = false;
+  renderAdmin();
+  $('#adminClose').focus();
+}
+function closeAdmin() {
+  adminOpen = false; editQ = null; disarm();
+  adminEl.hidden = true;
+  goHome();
+}
+$('#adminClose').addEventListener('click', closeAdmin);
+adminEl.querySelector('.tabs').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]'); if (!t) return;
+  adminTab = t.dataset.tab; editQ = null; disarm(); renderAdmin();
+});
+
+const curTest = () => db.tests.find(t => t.id === selTestId);
+
+// Confirmação em dois cliques (sem janelas de confirmação)
+function disarm() {
+  clearTimeout(armTimer);
+  if (armBtn) armBtn.textContent = armBtn.dataset.label;
+  armed = null; armBtn = null;
+}
+function arm(key, btn) {
+  if (armed === key) { disarm(); return true; }
+  disarm();
+  armed = key; armBtn = btn;
+  btn.dataset.label = btn.textContent;
+  btn.textContent = 'Clique de novo para confirmar';
+  armTimer = setTimeout(disarm, 3500);
+  return false;
+}
+
+function renderAdmin() {
+  armBtn = null; armed = null; clearTimeout(armTimer);
+  adminEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === adminTab)));
+  adminBody.innerHTML = adminTab === 'tests' ? renderTests() : adminTab === 'questions' ? renderQuestions() : renderBackup();
+}
+
+function renderTests() {
+  if (!curTest()) selTestId = db.tests[0] ? db.tests[0].id : null;
+  const list = db.tests.map(t => {
+    const act = t.items.filter(i => i.active).length;
+    return `<button type="button" class="t-item${t.id === selTestId ? ' is-sel' : ''}" data-act="selTest" data-id="${esc(t.id)}">
+      <span class="t-name">${esc(t.name)}</span>
+      <span class="pill ${t.active ? 'on' : 'off'}">${t.active ? 'Ativo' : 'Inativo'}</span>
+      <span class="t-sub">${act} de ${plural(t.items.length, 'pergunta ativa', 'perguntas ativas')}</span>
+    </button>`;
+  }).join('') || '<p class="muted">Nenhum teste criado.</p>';
+
+  const t = curTest();
+  let editor = '<p class="muted">Crie um teste para montar uma sequência de perguntas.</p>';
+  if (t) {
+    const rows = t.items.map((it, i) => {
+      const q = qById(it.questionId);
+      return `<li class="row${it.active ? '' : ' is-off'}" draggable="true" data-i="${i}">
+        <span class="pos" title="Arraste para reordenar">${i + 1}</span>
+        <span class="rtext">${esc(q.text)}</span>
+        <span class="tag ${q.answer}">${ansLabel(q.answer)}</span>
+        <span class="rtime">${q.time} s</span>
+        <label class="switch"><input type="checkbox" data-act="itemActive" data-i="${i}" ${it.active ? 'checked' : ''}><span>Ativa</span></label>
+        <button type="button" class="icon" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">↑</button>
+        <button type="button" class="icon" data-act="down" data-i="${i}" ${i === t.items.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">↓</button>
+        <button type="button" class="icon danger" data-act="removeItem" data-i="${i}" aria-label="Tirar do teste">✕</button>
+      </li>`;
+    }).join('');
+    const avail = db.questions.filter(q => !t.items.some(i => i.questionId === q.id));
+    const playable = t.items.some(i => i.active);
+    editor = `
+      <div class="field"><label for="tName">Nome do teste</label>
+        <input type="text" id="tName" data-act="testName" value="${esc(t.name)}" maxlength="80"></div>
+      <label class="switch big"><input type="checkbox" data-act="testActive" ${t.active ? 'checked' : ''}>
+        <span>Teste ativo (aparece na tela inicial)</span></label>
+      ${t.active && !playable ? '<p class="muted">Ative pelo menos uma pergunta para o teste aparecer na tela inicial.</p>' : ''}
+      <h3>Ordem das perguntas</h3>
+      ${t.items.length ? `<p class="muted">Arraste as linhas ou use as setas para mudar a ordem.</p><ol class="rows">${rows}</ol>`
+                       : '<p class="muted">Nenhuma pergunta neste teste ainda. Adicione abaixo.</p>'}
+      <div class="add">
+        ${avail.length ? `<select id="addSel" aria-label="Pergunta para adicionar">${avail.map(q => `<option value="${esc(q.id)}">${esc(trunc(q.text, 90))}</option>`).join('')}</select>
+          <button type="button" class="btn" data-act="addItem">Adicionar ao teste</button>
+          <button type="button" class="btn ghost" data-act="addAll">Adicionar todas (${avail.length})</button>`
+        : '<p class="muted">Todas as perguntas cadastradas já estão neste teste.</p>'}
+      </div>
+      <div class="danger-zone"><button type="button" class="btn danger" data-act="delTest">Excluir teste</button></div>`;
+  }
+  return `<div class="tests-layout">
+    <div><button type="button" class="btn" data-act="newTest">Novo teste</button><div class="t-list">${list}</div></div>
+    <div class="t-editor">${editor}</div>
+  </div>`;
+}
+
+function renderQuestions() {
+  const rows = db.questions.map(q => {
+    const n = db.tests.filter(t => t.items.some(i => i.questionId === q.id)).length;
+    return `<tr>
+      <td>${esc(q.text)}</td>
+      <td><span class="tag ${q.answer}">${ansLabel(q.answer)}</span></td>
+      <td class="num">${q.time} s</td>
+      <td class="num">${n}</td>
+      <td class="acts"><button type="button" class="btn small ghost" data-act="editQ" data-id="${esc(q.id)}">Editar</button><button type="button" class="btn small danger" data-act="delQ" data-id="${esc(q.id)}">Excluir</button></td>
+    </tr>`;
+  }).join('');
+  return `<p class="muted">O tempo de resposta é da pergunta e vale para todos os testes em que ela aparece.</p>
+    ${editQ ? questionForm() : '<button type="button" class="btn" data-act="newQ">Nova pergunta</button>'}
+    ${db.questions.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Afirmação</th><th>Resposta</th><th>Tempo</th><th>Testes</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>` : '<p class="muted" style="margin-top:16px">Nenhuma pergunta cadastrada.</p>'}`;
+}
+
+function questionForm() {
+  const isNew = editQ === 'new';
+  const q = isNew ? { text: '', answer: 'fato', time: 10, note: '' } : qById(editQ);
+  return `<div class="qform">
+    <h3>${isNew ? 'Nova pergunta' : 'Editar pergunta'}</h3>
+    <div class="field"><label for="fText">Afirmação</label><textarea id="fText" rows="3" maxlength="300">${esc(q.text)}</textarea></div>
+    <div class="grid2">
+      <fieldset class="field"><legend>Resposta certa</legend><div>
+        <label class="radio"><input type="radio" name="fAns" value="fato" ${q.answer === 'fato' ? 'checked' : ''}> Fato</label>
+        <label class="radio"><input type="radio" name="fAns" value="fake" ${q.answer === 'fake' ? 'checked' : ''}> Fake</label></div></fieldset>
+      <div class="field"><label for="fTime">Tempo para responder (segundos)</label><input type="number" id="fTime" min="3" max="300" value="${q.time}"></div>
+    </div>
+    <div class="field"><label for="fNote">Explicação mostrada depois da resposta (opcional)</label><textarea id="fNote" rows="2" maxlength="300">${esc(q.note)}</textarea></div>
+    ${isNew && db.tests.length ? `<div class="field"><label for="fTest">Incluir no final do teste</label><select id="fTest">
+        <option value="">Nenhum por enquanto</option>${db.tests.map(t => `<option value="${esc(t.id)}" ${t.id === selTestId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : ''}
+    <p class="form-err" id="fErr" hidden></p>
+    <div class="row-btns"><button type="button" class="btn" data-act="saveQ">Salvar pergunta</button><button type="button" class="btn ghost" data-act="cancelQ">Cancelar</button></div>
+  </div>`;
+}
+
+function renderBackup() {
+  return `<h3 style="margin-top:0">Exportar</h3>
+    <p class="muted">As perguntas e testes ficam salvos neste navegador. Copie o texto abaixo e guarde em um arquivo para ter uma cópia ou levar para outro computador.</p>
+    <textarea id="exp" rows="8" readonly>${esc(JSON.stringify(db, null, 2))}</textarea>
+    <p><button type="button" class="btn" data-act="copy">Copiar backup</button><span class="msg" id="copyMsg"></span></p>
+    <h3>Importar</h3>
+    <p class="muted">Cole aqui um backup. Isso substitui todas as perguntas e testes atuais.</p>
+    <textarea id="imp" rows="6" placeholder="Cole o backup aqui"></textarea>
+    <p><button type="button" class="btn" data-act="import">Importar backup</button><span class="msg" id="impMsg"></span></p>
+    <h3>Recomeçar</h3>
+    <p class="muted">Apaga tudo e volta às perguntas de exemplo.</p>
+    <button type="button" class="btn danger" data-act="reset">Restaurar perguntas de exemplo</button>`;
+}
+
+function move(arr, from, to) { const [m] = arr.splice(from, 1); arr.splice(to, 0, m); }
+
+adminBody.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const act = b.dataset.act, t = curTest(), i = +b.dataset.i;
+  switch (act) {
+    case 'selTest': selTestId = b.dataset.id; renderAdmin(); break;
+    case 'newTest': {
+      const nt = { id: uid(), name: 'Novo teste', active: false, items: [] };
+      db.tests.push(nt); selTestId = nt.id; save(); renderAdmin();
+      const n = $('#tName'); if (n) { n.focus(); n.select(); }
+      break;
+    }
+    case 'up': if (t && i > 0) { move(t.items, i, i - 1); save(); renderAdmin(); } break;
+    case 'down': if (t && i < t.items.length - 1) { move(t.items, i, i + 1); save(); renderAdmin(); } break;
+    case 'removeItem': if (t) { t.items.splice(i, 1); save(); renderAdmin(); } break;
+    case 'addItem': { const id = $('#addSel') && $('#addSel').value; if (t && id) { t.items.push({ questionId: id, active: true }); save(); renderAdmin(); } break; }
+    case 'addAll': if (t) { db.questions.filter(q => !t.items.some(x => x.questionId === q.id)).forEach(q => t.items.push({ questionId: q.id, active: true })); save(); renderAdmin(); } break;
+    case 'delTest': if (t && arm('delTest:' + t.id, b)) { db.tests = db.tests.filter(x => x !== t); selTestId = null; save(); renderAdmin(); } break;
+    case 'newQ': editQ = 'new'; renderAdmin(); $('#fText').focus(); break;
+    case 'editQ': editQ = b.dataset.id; renderAdmin(); $('#fText').focus(); $('.qform').scrollIntoView({ block: 'nearest' }); break;
+    case 'cancelQ': editQ = null; renderAdmin(); break;
+    case 'saveQ': saveQuestion(); break;
+    case 'delQ': {
+      const id = b.dataset.id;
+      if (arm('delQ:' + id, b)) {
+        db.questions = db.questions.filter(q => q.id !== id);
+        db.tests.forEach(x => { x.items = x.items.filter(it => it.questionId !== id); });
+        if (editQ === id) editQ = null;
+        save(); renderAdmin();
+      }
+      break;
+    }
+    case 'copy': {
+      const ta = $('#exp'), msg = $('#copyMsg');
+      try { await navigator.clipboard.writeText(ta.value); msg.textContent = 'Backup copiado.'; }
+      catch (err) {
+        ta.focus(); ta.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {}
+        msg.textContent = ok ? 'Backup copiado.' : 'Texto selecionado. Use Ctrl+C para copiar.';
+      }
+      break;
+    }
+    case 'import': {
+      const msg = $('#impMsg'); msg.classList.remove('err');
+      try {
+        const d = normalize(JSON.parse($('#imp').value));
+        db = d; selTestId = null; editQ = null; save(); renderAdmin();
+        $('#impMsg').textContent = `Backup importado: ${plural(db.questions.length, 'pergunta', 'perguntas')} e ${plural(db.tests.length, 'teste', 'testes')}.`;
+      } catch (err) {
+        msg.classList.add('err');
+        msg.textContent = 'Esse texto não é um backup válido. Cole o conteúdo completo copiado em Exportar.';
+      }
+      break;
+    }
+    case 'reset': if (arm('reset', b)) { db = seed(); selTestId = null; editQ = null; save(); renderAdmin(); } break;
+  }
+});
+
+adminBody.addEventListener('change', e => {
+  const el = e.target, act = el.dataset.act, t = curTest();
+  if (!t) return;
+  if (act === 'itemActive') { t.items[+el.dataset.i].active = el.checked; save(); renderAdmin(); }
+  else if (act === 'testActive') { t.active = el.checked; save(); renderAdmin(); }
+  else if (act === 'testName' && !el.value.trim()) { t.name = 'Teste sem nome'; el.value = t.name; save(); renderAdmin(); }
+});
+adminBody.addEventListener('input', e => {
+  if (e.target.dataset.act !== 'testName') return;
+  const t = curTest(); if (!t) return;
+  t.name = e.target.value; save();
+  const n = adminBody.querySelector('.t-item.is-sel .t-name'); if (n) n.textContent = t.name || 'Teste sem nome';
+});
+
+function saveQuestion() {
+  const err = $('#fErr');
+  const text = $('#fText').value.trim();
+  const ansEl = adminBody.querySelector('input[name="fAns"]:checked');
+  const time = Number($('#fTime').value);
+  const note = $('#fNote').value.trim();
+  if (!text) { err.textContent = 'Escreva a afirmação antes de salvar.'; err.hidden = false; $('#fText').focus(); return; }
+  if (!Number.isFinite(time) || time < 3 || time > 300) { err.textContent = 'Use um tempo entre 3 e 300 segundos.'; err.hidden = false; $('#fTime').focus(); return; }
+  const data = { text, answer: ansEl ? ansEl.value : 'fato', time: Math.round(time), note };
+  if (editQ === 'new') {
+    const q = { id: uid(), ...data };
+    db.questions.push(q);
+    const tSel = $('#fTest') && $('#fTest').value;
+    const tt = tSel && db.tests.find(x => x.id === tSel);
+    if (tt) tt.items.push({ questionId: q.id, active: true });
+  } else {
+    Object.assign(qById(editQ), data);
+  }
+  editQ = null; save(); renderAdmin();
+}
+
+// Arrastar e soltar para reordenar
+let dragFrom = null;
+const clearDrag = () => adminBody.querySelectorAll('.dragging,.drop-target').forEach(x => x.classList.remove('dragging', 'drop-target'));
+adminBody.addEventListener('dragstart', e => {
+  const li = e.target.closest && e.target.closest('li.row'); if (!li) return;
+  dragFrom = +li.dataset.i; li.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', String(dragFrom)); } catch (err) {}
+});
+adminBody.addEventListener('dragover', e => {
+  const li = e.target.closest && e.target.closest('li.row');
+  if (!li || dragFrom === null) return;
+  e.preventDefault();
+  adminBody.querySelectorAll('.drop-target').forEach(x => x.classList.remove('drop-target'));
+  li.classList.add('drop-target');
+});
+adminBody.addEventListener('drop', e => {
+  const li = e.target.closest && e.target.closest('li.row');
+  if (!li || dragFrom === null) return;
+  e.preventDefault();
+  const t = curTest(), to = +li.dataset.i;
+  if (t && to !== dragFrom) { move(t.items, dragFrom, to); save(); }
+  dragFrom = null; renderAdmin();
+});
+adminBody.addEventListener('dragend', () => { dragFrom = null; clearDrag(); });
+
+/* ================= Início ================= */
+$('#quickN').textContent = QUICK_N;
+renderHome();
+show('home');
+})();
+</script>
+</body>
+</html>
