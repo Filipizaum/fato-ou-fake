@@ -75,6 +75,9 @@ button{font:inherit;color:inherit}
 .hints{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:center;color:var(--muted);margin-top:clamp(18px,4vh,34px)}
 .hint{display:inline-flex;align-items:center;gap:8px;font-size:1.05rem}
 .kbd-note{color:var(--muted);font-size:.9rem;margin-top:14px;opacity:.85}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:20;max-width:min(90vw,520px);
+  padding:10px 18px;border-radius:12px;background:var(--surface);border:2px solid var(--line);color:var(--ink);
+  font-size:.95rem;text-align:center;box-shadow:0 6px 0 var(--line)}
 
 /* Prepare-se */
 .prep-title{font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,6vw,4.6rem);margin:0;letter-spacing:-.02em}
@@ -227,6 +230,7 @@ td.acts .btn+.btn{margin-left:6px}
 </head>
 <body>
 
+<div class="toast" id="toast" role="status" hidden></div>
 <div class="pad-status" id="padStatus" role="status"><span class="dot"></span><span id="padText">Pressione um botão do controle para conectar</span></div>
 
 <!-- Início -->
@@ -238,8 +242,9 @@ td.acts .btn+.btn{margin-left:6px}
     <span class="hint"><span class="ps dp"><span>▲▼</span></span> Escolher</span>
     <span class="hint"><span class="ps cr"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg></span> Começar</span>
     <span class="hint"><span class="ps tr"><svg viewBox="0 0 24 24"><path d="M12 5.4L18.6 17.8H5.4z" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" fill="none"/></svg></span> Sortear <span id="quickN">3</span></span>
+    <span class="hint"><span class="ps dp"><span>☰</span></span> Tela cheia</span>
   </div>
-  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia.</p>
+  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia e a tecla F alterna a tela cheia.</p>
 </section>
 
 <!-- Prepare-se -->
@@ -516,13 +521,32 @@ for (const id of ['game', 'final']) screens[id].addEventListener('click', e => {
 });
 
 /* ================= Entrada ================= */
+let toastTimer = 0;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+}
+
+function toggleFullscreen() {
+  const root = document.documentElement;
+  const cur = document.fullscreenElement || document.webkitFullscreenElement;
+  const req = root.requestFullscreen || root.webkitRequestFullscreen;
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!cur && !req) { toast('Este navegador não suporta tela cheia.'); return; }
+  Promise.resolve(cur ? exit.call(document) : req.call(root))
+    .catch(() => toast('O navegador não liberou a tela cheia por aqui. Use a tecla F ou F11.'));
+}
+
 function handle(a) {
+  if (a === 'fullscreen') { toggleFullscreen(); return; }
   if (adminOpen) return;
   if (screen === 'home') {
     const n = playableTests().length; if (!n) return;
     if (a === 'up') { homeIdx = (homeIdx - 1 + n) % n; renderHome(); }
     else if (a === 'down') { homeIdx = (homeIdx + 1) % n; renderHome(); }
-    else if (a === 'confirm' || a === 'start') startTest(homeIdx);
+    else if (a === 'confirm') startTest(homeIdx);
     else if (a === 'quick') startTest(homeIdx, true);
   } else if (screen === 'game' && game) {
     if (game.phase === 'question') { if (a === 'fato' || a === 'fake') answer(a); }
@@ -533,7 +557,7 @@ function handle(a) {
 }
 
 // Mapeamento padrão do Chrome para DualShock 4
-const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 9: 'start', 12: 'up', 13: 'down' };
+const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 9: 'fullscreen', 12: 'up', 13: 'down' };
 const prevBtns = new Map(), axisState = new Map();
 let padSig = '', padBlocked = false;
 
@@ -590,6 +614,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowDown') a = 'down';
   else if (e.key === 'Enter' || e.key === ' ') a = 'confirm';
   else if (e.key === 'r' || e.key === 'R') a = 'quick';
+  else if (e.key === 'f' || e.key === 'F') a = 'fullscreen';
   if (a !== 'any' || screen !== 'home') e.preventDefault();
   handle(a);
 });
