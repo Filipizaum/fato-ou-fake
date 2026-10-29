@@ -243,8 +243,9 @@ td.acts .btn+.btn{margin-left:6px}
     <span class="hint"><span class="ps cr"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg></span> Começar</span>
     <span class="hint"><span class="ps tr"><svg viewBox="0 0 24 24"><path d="M12 5.4L18.6 17.8H5.4z" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" fill="none"/></svg></span> Sortear <span id="quickN">3</span></span>
     <span class="hint"><span class="ps dp"><span>☰</span></span> Tela cheia</span>
+    <span class="hint"><span class="ps dp"><span>L1</span></span> Música</span>
   </div>
-  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia e a tecla F alterna a tela cheia.</p>
+  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia, a tecla F alterna a tela cheia e a tecla M liga ou desliga a música. Durante o jogo, ▲▼ (ou ↑ ↓) ajustam o volume.</p>
 </section>
 
 <!-- Prepare-se -->
@@ -325,7 +326,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 const pctFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-const clampTime = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(300, Math.max(3, n)) : 10; };
+const clampTime = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(300, Math.max(3, n)) : 20; };
 const ansLabel = a => a === 'fato' ? 'Fato' : 'Fake';
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -342,7 +343,7 @@ function seed() {
     ['Ao nível do mar, a água ferve a 100 °C.', 'fato', 'Em lugares mais altos, a pressão é menor e a água ferve antes disso.'],
     ['O Brasil é o maior país da América do Sul em área.', 'fato', 'Ocupa quase metade do território do continente.'],
     ['Peixes-dourados têm memória de apenas três segundos.', 'fake', 'Estudos mostram que eles conseguem lembrar de coisas por meses.']
-  ].map(([text, answer, note]) => ({ id: uid(), text, answer, note, time: 10 }));
+  ].map(([text, answer, note]) => ({ id: uid(), text, answer, note, time: 20 }));
   return {
     questions: qs,
     tests: [
@@ -379,6 +380,13 @@ function load() {
 function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* sem armazenamento */ } }
 
 let db = load();
+// O tempo padrão passou de 10 para 20 s (duração da música); ajusta uma vez os dados já salvos
+try {
+  if (!localStorage.getItem('fatoOuFake.tempo20')) {
+    db.questions.forEach(q => { if (q.time === 10) q.time = 20; });
+    localStorage.setItem('fatoOuFake.tempo20', '1');
+  }
+} catch (e) { /* sem armazenamento */ }
 save();
 const qById = id => db.questions.find(q => q.id === id);
 const activeQuestions = t => t.items.filter(i => i.active).map(i => qById(i.questionId)).filter(Boolean);
@@ -395,6 +403,42 @@ const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
 let game = null;
 let homeIdx = 0;
+
+/* ================= Música ================= */
+const SOUND_KEY = 'fatoOuFake.som';
+const music = new Audio('Twenty_Seconds_Left.wav');
+music.preload = 'auto';
+const sound = { on: true, vol: 0.8 };
+try {
+  const s = JSON.parse(localStorage.getItem(SOUND_KEY));
+  if (s) { sound.on = s.on !== false; if (Number.isFinite(s.vol)) sound.vol = Math.min(1, Math.max(0, s.vol)); }
+} catch (e) { /* usa o padrão */ }
+music.volume = sound.vol;
+const saveSound = () => { try { localStorage.setItem(SOUND_KEY, JSON.stringify(sound)); } catch (e) { /* sem armazenamento */ } };
+let musicBlockedWarned = false;
+
+// Toca a partir de `at` segundos, só enquanto a pergunta está aberta
+function playMusic(at) {
+  if (!sound.on || screen !== 'game' || !game || game.phase !== 'question' || adminOpen) return;
+  try { music.currentTime = at; } catch (e) { /* ainda carregando */ }
+  const p = music.play();
+  if (p) p.catch(() => {
+    if (!musicBlockedWarned) { musicBlockedWarned = true; toast('O navegador bloqueou a música. Clique na página uma vez para liberar.'); }
+  });
+}
+function stopMusic() { music.pause(); }
+
+function toggleSound() {
+  sound.on = !sound.on; saveSound();
+  if (sound.on) { if (game) playMusic((performance.now() - game.start) / 1000); }
+  else stopMusic();
+  toast(sound.on ? 'Música ligada' : 'Música desligada', 1500);
+}
+function changeVolume(d) {
+  sound.vol = Math.round(Math.min(1, Math.max(0, sound.vol + d)) * 10) / 10;
+  music.volume = sound.vol; saveSound();
+  toast(`Volume ${Math.round(sound.vol * 100)}%${sound.on ? '' : ' (música desligada)'}`, 1500);
+}
 
 function renderHome() {
   const list = playableTests();
@@ -414,7 +458,7 @@ $('#testList').addEventListener('click', e => {
   homeIdx = +b.dataset.i; startTest(homeIdx);
 });
 
-function goHome() { clearTimers(); game = null; show('home'); renderHome(); }
+function goHome() { clearTimers(); stopMusic(); game = null; show('home'); renderHome(); }
 
 function restartAnim(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
@@ -458,6 +502,7 @@ function showQuestion() {
   $('#timerBox').hidden = false; $('#feedback').hidden = true;
   $('#continueHint').classList.remove('on');
   show('game');
+  playMusic(0);
   updateTimer(game.start);
 }
 
@@ -476,6 +521,7 @@ function answer(choice) {
   const q = game.q, ok = choice === q.answer;
   game.results.push({ q, choice, ok });
   game.phase = 'feedback';
+  stopMusic();
   const chosen = choice === 'fato' ? btnFato : choice === 'fake' ? btnFake : null;
   const right = q.answer === 'fato' ? btnFato : btnFake;
   if (chosen) { chosen.classList.add('is-press', 'is-chosen'); setTimeout(() => chosen.classList.remove('is-press'), 140); }
@@ -522,11 +568,11 @@ for (const id of ['game', 'final']) screens[id].addEventListener('click', e => {
 
 /* ================= Entrada ================= */
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, ms = 4000) {
   const el = $('#toast');
   el.textContent = msg; el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+  toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
 function toggleFullscreen() {
@@ -542,6 +588,9 @@ function toggleFullscreen() {
 function handle(a) {
   if (a === 'fullscreen') { toggleFullscreen(); return; }
   if (adminOpen) return;
+  if (a === 'sound') { toggleSound(); return; }
+  // Fora da tela inicial, cima e baixo controlam o volume
+  if (screen !== 'home' && (a === 'up' || a === 'down')) { changeVolume(a === 'up' ? 0.1 : -0.1); return; }
   if (screen === 'home') {
     const n = playableTests().length; if (!n) return;
     if (a === 'up') { homeIdx = (homeIdx - 1 + n) % n; renderHome(); }
@@ -550,14 +599,14 @@ function handle(a) {
     else if (a === 'quick') startTest(homeIdx, true);
   } else if (screen === 'game' && game) {
     if (game.phase === 'question') { if (a === 'fato' || a === 'fake') answer(a); }
-    else if (game.phase === 'feedback' && a !== 'up' && a !== 'down') nextQuestion();
-  } else if (screen === 'final' && game && game.canContinue && a !== 'up' && a !== 'down') {
+    else if (game.phase === 'feedback') nextQuestion();
+  } else if (screen === 'final' && game && game.canContinue) {
     goHome();
   }
 }
 
 // Mapeamento padrão do Chrome para DualShock 4
-const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 9: 'fullscreen', 12: 'up', 13: 'down' };
+const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 4: 'sound', 9: 'fullscreen', 12: 'up', 13: 'down' };
 const prevBtns = new Map(), axisState = new Map();
 let padSig = '', padBlocked = false;
 
@@ -584,10 +633,10 @@ function poll(now) {
       prev[i] = down;
     });
     prevBtns.set(gp.index, prev);
-    // Analógico esquerdo só navega na tela inicial
+    // Analógico esquerdo: navega na tela inicial e ajusta o volume nas demais
     const y = gp.axes[1] || 0, dir = y < -0.6 ? 'up' : y > 0.6 ? 'down' : null;
     const st = axisState.get(gp.index) || { dir: null, t: 0 };
-    if (dir && screen === 'home' && (dir !== st.dir || now - st.t > 380)) { handle(dir); st.t = now; }
+    if (dir && (dir !== st.dir || now - st.t > 380)) { handle(dir); st.t = now; }
     st.dir = dir; axisState.set(gp.index, st);
   }
 }
@@ -615,6 +664,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Enter' || e.key === ' ') a = 'confirm';
   else if (e.key === 'r' || e.key === 'R') a = 'quick';
   else if (e.key === 'f' || e.key === 'F') a = 'fullscreen';
+  else if (e.key === 'm' || e.key === 'M') a = 'sound';
   if (a !== 'any' || screen !== 'home') e.preventDefault();
   handle(a);
 });
@@ -738,7 +788,7 @@ function renderQuestions() {
 
 function questionForm() {
   const isNew = editQ === 'new';
-  const q = isNew ? { text: '', answer: 'fato', time: 10, note: '' } : qById(editQ);
+  const q = isNew ? { text: '', answer: 'fato', time: 20, note: '' } : qById(editQ);
   return `<div class="qform">
     <h3>${isNew ? 'Nova pergunta' : 'Editar pergunta'}</h3>
     <div class="field"><label for="fText">Afirmação</label><textarea id="fText" rows="3" maxlength="300">${esc(q.text)}</textarea></div>
