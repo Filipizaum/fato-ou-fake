@@ -51,6 +51,9 @@ button{font:inherit;color:inherit}
 .pad-status.on .dot{background:var(--ok)}
 .pad-status.blocked .dot{background:var(--bad)}
 
+/* Sem seleção de texto nem cursor piscando nas telas do jogo (a área administrativa fica de fora) */
+.screen,.pad-status,.toast{user-select:none;-webkit-user-select:none;caret-color:transparent}
+
 /* Símbolos PlayStation */
 .ps{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:var(--pad);flex:none}
 .ps svg{width:62%;height:62%;display:block}
@@ -240,12 +243,12 @@ td.acts .btn+.btn{margin-left:6px}
   <div class="tests" id="testList"></div>
   <div class="hints">
     <span class="hint"><span class="ps dp"><span>▲▼</span></span> Escolher</span>
-    <span class="hint"><span class="ps cr"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg></span> Começar</span>
-    <span class="hint"><span class="ps tr"><svg viewBox="0 0 24 24"><path d="M12 5.4L18.6 17.8H5.4z" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" fill="none"/></svg></span> Sortear <span id="quickN">3</span></span>
+    <span class="hint"><span class="ps cr"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg></span> <span id="quickN">3</span> aleatórias</span>
+    <span class="hint"><span class="ps tr"><svg viewBox="0 0 24 24"><path d="M12 5.4L18.6 17.8H5.4z" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" fill="none"/></svg></span> Todas, em ordem aleatória</span>
     <span class="hint"><span class="ps dp"><span>☰</span></span> Tela cheia</span>
     <span class="hint"><span class="ps dp"><span>L1</span></span> Música</span>
   </div>
-  <p class="kbd-note">Sem controle? Use as setas e Enter. Na pergunta, ← responde Fato e → responde Fake. A tecla R sorteia, a tecla F alterna a tela cheia e a tecla M liga ou desliga a música. Durante o jogo, ▲▼ (ou ↑ ↓) ajustam o volume.</p>
+  <p class="kbd-note">Durante o jogo, △ (ou Esc) volta ao início. Sem controle? Use as setas; Enter sorteia 3 perguntas e T joga todas. Na pergunta, ← responde Fato e → responde Fake. A tecla F alterna a tela cheia e a tecla M liga ou desliga a música. Durante o jogo, ▲▼ (ou ↑ ↓) ajustam o volume.</p>
 </section>
 
 <!-- Prepare-se -->
@@ -455,14 +458,14 @@ function renderHome() {
 }
 $('#testList').addEventListener('click', e => {
   const b = e.target.closest('.test-card'); if (!b) return;
-  homeIdx = +b.dataset.i; startTest(homeIdx);
+  homeIdx = +b.dataset.i; startTest(homeIdx, true);
 });
 
 function goHome() { clearTimers(); stopMusic(); game = null; show('home'); renderHome(); }
 
 function restartAnim(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
-// Modo sorteio (Triângulo): QUICK_N perguntas aleatórias, em ordem aleatória
+// X: QUICK_N perguntas sorteadas; Triângulo: todas. Nos dois casos, em ordem aleatória
 const QUICK_N = 3;
 function shuffled(arr) {
   const a = arr.slice();
@@ -474,9 +477,9 @@ function startTest(i, quick) {
   const x = playableTests()[i]; if (!x) return;
   clearTimers();
   // Com menos perguntas que QUICK_N, usa as que houver
-  const queue = quick ? shuffled(x.qs).slice(0, QUICK_N) : x.qs;
+  const queue = quick ? shuffled(x.qs).slice(0, QUICK_N) : shuffled(x.qs);
   game = { test: x.t, queue, idx: 0, results: [], phase: 'prep', canContinue: false, quick: !!quick };
-  const drawn = quick ? (queue.length === 1 ? ' sorteada' : ' sorteadas') : '';
+  const drawn = quick ? (queue.length === 1 ? ' sorteada' : ' sorteadas') : ', em ordem aleatória';
   $('#prepSub').textContent = `${x.t.name}: ${plural(queue.length, 'pergunta', 'perguntas')}${drawn}`;
   $('#count').textContent = '';
   show('prep');
@@ -591,12 +594,14 @@ function handle(a) {
   if (a === 'sound') { toggleSound(); return; }
   // Fora da tela inicial, cima e baixo controlam o volume
   if (screen !== 'home' && (a === 'up' || a === 'down')) { changeVolume(a === 'up' ? 0.1 : -0.1); return; }
+  // Triângulo ou Esc fora da tela inicial: volta ao menu
+  if (screen !== 'home' && (a === 'all' || a === 'back')) { goHome(); return; }
   if (screen === 'home') {
     const n = playableTests().length; if (!n) return;
     if (a === 'up') { homeIdx = (homeIdx - 1 + n) % n; renderHome(); }
     else if (a === 'down') { homeIdx = (homeIdx + 1) % n; renderHome(); }
-    else if (a === 'confirm') startTest(homeIdx);
-    else if (a === 'quick') startTest(homeIdx, true);
+    else if (a === 'confirm') startTest(homeIdx, true);
+    else if (a === 'all') startTest(homeIdx);
   } else if (screen === 'game' && game) {
     if (game.phase === 'question') { if (a === 'fato' || a === 'fake') answer(a); }
     else if (game.phase === 'feedback') nextQuestion();
@@ -606,7 +611,7 @@ function handle(a) {
 }
 
 // Mapeamento padrão do Chrome para DualShock 4
-const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'quick', 4: 'sound', 9: 'fullscreen', 12: 'up', 13: 'down' };
+const BTN = { 0: 'confirm', 1: 'fake', 2: 'fato', 3: 'all', 4: 'sound', 9: 'fullscreen', 12: 'up', 13: 'down' };
 const prevBtns = new Map(), axisState = new Map();
 let padSig = '', padBlocked = false;
 
@@ -662,7 +667,8 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowUp') a = 'up';
   else if (e.key === 'ArrowDown') a = 'down';
   else if (e.key === 'Enter' || e.key === ' ') a = 'confirm';
-  else if (e.key === 'r' || e.key === 'R') a = 'quick';
+  else if (e.key === 't' || e.key === 'T') a = 'all';
+  else if (e.key === 'Escape') a = 'back';
   else if (e.key === 'f' || e.key === 'F') a = 'fullscreen';
   else if (e.key === 'm' || e.key === 'M') a = 'sound';
   if (a !== 'any' || screen !== 'home') e.preventDefault();
